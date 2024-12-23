@@ -31,8 +31,7 @@ def register_user(username: str, password: str) -> None:
         if username in users_db:
             raise HTTPException(status_code=400, detail="Username already registered")
         users_db[username] = get_password_hash(password)
-    except Exception as e:
-        print(f"Error during registration: {e}")
+    except:
         raise HTTPException(status_code=500, detail="Internal server error during registration")
 
 
@@ -65,3 +64,12 @@ def create_token(data: dict, expires_delta: timedelta | None = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+
+def external_api_call():
+    '''Simulate usage of external API for Circuit Breaker testing endpoint'''
+    import random
+    if random.choice([True, False]):
+        raise Exception('Failure simulated')
+    return {'message': 'Success simulated'}
+    

@@ -1,5 +1,5 @@
 '''
-Module for models
+Module for data models
 '''
 
 from pydantic import BaseModel
