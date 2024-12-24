@@ -16,6 +16,10 @@ class TokenData(BaseModel):
     username: str | None = None
 
 
+class UserRegistration(BaseModel):
+    username: str
+    password: str
+
 class User(BaseModel):
     username: str
 

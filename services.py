@@ -1,14 +1,16 @@
 '''
 Module for service methods
 '''
-
+import random
 from datetime import datetime, timedelta, timezone
 
 import jwt
 from passlib.context import CryptContext
+from fastapi.responses import JSONResponse
 from fastapi import HTTPException
 
-from users import users_db, UserInDB
+from users import users_db, UserInDB, TokenData
+from config import ALGORITHM, SECRET_KEY
 
 
 '''Hash password context'''
@@ -27,12 +29,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def register_user(username: str, password: str) -> None:
     '''Register user in db.'''
-    try:
-        if username in users_db:
-            raise HTTPException(status_code=400, detail="Username already registered")
-        users_db[username] = get_password_hash(password)
-    except:
-        raise HTTPException(status_code=500, detail="Internal server error during registration")
+    if username in users_db:
+        raise HTTPException(status_code=400, detail="Username already registered")
+    
+    users_db[username] = get_password_hash(password)
+    return
 
 
 def get_user(users_db, username: str):
@@ -66,10 +67,48 @@ def create_token(data: dict, expires_delta: timedelta | None = None):
     return encoded_jwt
 
 
+async def verify_token(token: str) -> TokenData:
+    '''
+    Verify the given JWT token.
+    Args:
+        token: JWT token string.
+    Returns:
+        TokenData: decoded token data if valid, otherwise raises exception
+    '''
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get('sub')
+        expire = payload.get('exp')
+
+        if expire is not None:
+            expire_time = datetime.fromtimestamp(expire, tz=timezone.utc)
+            if expire_time < datetime.now(timezone.utc):
+                raise HTTPException(
+                    status_code=401, 
+                    detail='Token expired',
+                    headers={'WWW-Authenticate': 'Bearer'}
+                )
+        
+        if username is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid token payload",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        token_data = TokenData(username=username)
+        return token_data
+
+    except jwt.PyJWTError as e:
+        raise HTTPException(
+            status_code=401,
+            detail=f"Error decoding token: {e}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
 def external_api_call():
     '''Simulate usage of external API for Circuit Breaker testing endpoint'''
-    import random
     if random.choice([True, False]):
-        raise Exception('Failure simulated')
+        return {'message': 'Failure simulated'}
     return {'message': 'Success simulated'}
-    
