@@ -2,7 +2,8 @@
 Tests module
 '''
 import time
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
+
 import pybreaker
 
 from fastapi.testclient import TestClient
@@ -12,14 +13,6 @@ from main import app, serviceRegistry, ExternalAPIAdapter, SERVICE_NAME_EXTERNAL
 
 
 client = TestClient(app)
-
-class MockExternalAPIAdapter:
-    def set_result(self, result):
-        self.result = result
-
-    def external_api_call(self):
-        return self.result
-    
 
 
 def test_root():
@@ -72,23 +65,24 @@ def test_rate_limiter_functionality():
     assert response.status_code == 429
 
 def test_circuit_breaker_when_service_is_not_available():
-    obj = MockExternalAPIAdapter()
-    obj.set_result(False)
-    serviceRegistry.registerService(SERVICE_NAME_EXTERNAL_API_ADAPTER, obj)
+    mock_external_api_adapter = MagicMock(spec=ExternalAPIAdapter)
+    mock_external_api_adapter.external_api_call.return_value = False
+    serviceRegistry.registerService(SERVICE_NAME_EXTERNAL_API_ADAPTER, mock_external_api_adapter)
+
     response = client.get('/circuitbreak')
     assert response.status_code == 503
 
 def test_circuit_breaker_when_service_failed():
-    obj = MockExternalAPIAdapter()
-    obj.set_result(True)
-    serviceRegistry.registerService(SERVICE_NAME_EXTERNAL_API_ADAPTER, obj)
+    mock_external_api_adapter = MagicMock(spec=ExternalAPIAdapter)
+    mock_external_api_adapter.external_api_call.return_value = True
+    serviceRegistry.registerService(SERVICE_NAME_EXTERNAL_API_ADAPTER, mock_external_api_adapter)
 
     for _ in range(10):
         response = client.get('/circuitbreak')
         assert response.status_code == 200
-    
+
+    mock_external_api_adapter.external_api_call.return_value = False
     try:
-        obj.set_result(False)
         for _ in range(10):
             response = client.get('/circuitbreak')
     except pybreaker.CircuitBreakerError:
