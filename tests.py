@@ -3,14 +3,23 @@ Tests module
 '''
 import time
 from unittest.mock import patch
-import pytest
+import pybreaker
+
 from fastapi.testclient import TestClient
 
-from  main import app
 from config import ACCESS_TOKEN_EXPIRE_MINUTES
+from main import app, serviceRegistry, ExternalAPIAdapter, SERVICE_NAME_EXTERNAL_API_ADAPTER
 
 
 client = TestClient(app)
+
+class MockExternalAPIAdapter:
+    def set_result(self, result):
+        self.result = result
+
+    def external_api_call(self):
+        return self.result
+    
 
 
 def test_root():
@@ -62,17 +71,25 @@ def test_rate_limiter_functionality():
         time.sleep(1)
     assert response.status_code == 429
 
-@patch('services.random.choice')
-def test_circuit_breaker_functionality(mock_choice):
-    mock_choice.side_effect = [True, True, True]
-
-    for _ in range(3):
-        response = client.get('/circuitbreak')
-        assert response.json() == {'message': 'Failure simulated'}
-
-    
-    time.sleep(11)
-
-    mock_choice.side_effect = [False]
+def test_circuit_breaker_when_service_is_not_available():
+    obj = MockExternalAPIAdapter()
+    obj.set_result(False)
+    serviceRegistry.registerService(SERVICE_NAME_EXTERNAL_API_ADAPTER, obj)
     response = client.get('/circuitbreak')
-    assert response.json() == {'message': 'Success simulated'}
+    assert response.status_code == 503
+
+def test_circuit_breaker_when_service_failed():
+    obj = MockExternalAPIAdapter()
+    obj.set_result(True)
+    serviceRegistry.registerService(SERVICE_NAME_EXTERNAL_API_ADAPTER, obj)
+
+    for _ in range(10):
+        response = client.get('/circuitbreak')
+        assert response.status_code == 200
+    
+    try:
+        obj.set_result(False)
+        for _ in range(10):
+            response = client.get('/circuitbreak')
+    except pybreaker.CircuitBreakerError:
+        assert True

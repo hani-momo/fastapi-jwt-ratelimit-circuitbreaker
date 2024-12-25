@@ -105,10 +105,3 @@ async def verify_token(token: str) -> TokenData:
             detail=f"Error decoding token: {e}",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
-
-def external_api_call():
-    '''Simulate usage of external API for Circuit Breaker testing endpoint'''
-    if random.choice([True, False]):
-        return {'message': 'Failure simulated'}
-    return {'message': 'Success simulated'}
