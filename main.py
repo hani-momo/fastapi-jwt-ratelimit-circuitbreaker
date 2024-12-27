@@ -34,10 +34,10 @@ class ExternalServicesRegistry:
     def __init__(self):
         self.dictionary = dict()
     
-    def registerService(self, name: str, apiRef: object):
-        self.dictionary[name] = apiRef
+    def register_service(self, name: str, api_ref: object):
+        self.dictionary[name] = api_ref
     
-    def getService(self, name: str):
+    def get_service(self, name: str):
         return self.dictionary[name]
 
 
@@ -46,9 +46,9 @@ class ExternalAPIAdapter:
         return True
 
 SERVICE_NAME_EXTERNAL_API_ADAPTER = 'external_api_adapter'
-serviceRegistry = ExternalServicesRegistry()
+service_registry = ExternalServicesRegistry()
 
-serviceRegistry.registerService(SERVICE_NAME_EXTERNAL_API_ADAPTER, ExternalAPIAdapter())
+service_registry.register_service(SERVICE_NAME_EXTERNAL_API_ADAPTER, ExternalAPIAdapter())
 
 
 @app.get('/')
@@ -93,7 +93,7 @@ async def protected_route(token: str = Depends(oauth2_scheme)):
 @app.get('/circuitbreak', status_code=200)
 @circuit_breaker(fail_max=3, reset_timeout=10)
 def circuit_breaker_endpoint():
-    externalAPIAdapter = serviceRegistry.getService(SERVICE_NAME_EXTERNAL_API_ADAPTER)
+    externalAPIAdapter = service_registry.get_service(SERVICE_NAME_EXTERNAL_API_ADAPTER)
     result = externalAPIAdapter.external_api_call()
     if result == False:
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")

@@ -9,7 +9,7 @@ import pybreaker
 from fastapi.testclient import TestClient
 
 from config import ACCESS_TOKEN_EXPIRE_MINUTES
-from main import app, serviceRegistry, ExternalAPIAdapter, SERVICE_NAME_EXTERNAL_API_ADAPTER
+from main import app, service_registry, ExternalAPIAdapter, SERVICE_NAME_EXTERNAL_API_ADAPTER
 
 
 client = TestClient(app)
@@ -63,14 +63,14 @@ def test_rate_limiter():
         response = client.post(
             '/login', 
             data={'username': 'testusername', 'password': 'testpassword'})
-        if response.status_code ==429:
+        if response.status_code == 429:
             break
         time.sleep(1)
     assert response.status_code == 429
 
 def test_circuit_breaker_when_service_is_not_available():
     mock_external_api_adapter = MagicMock(spec=ExternalAPIAdapter)
-    serviceRegistry.registerService(SERVICE_NAME_EXTERNAL_API_ADAPTER, mock_external_api_adapter)
+    service_registry.register_service(SERVICE_NAME_EXTERNAL_API_ADAPTER, mock_external_api_adapter)
     mock_external_api_adapter.external_api_call.return_value = False
 
     response = client.get('/circuitbreak')
@@ -78,7 +78,7 @@ def test_circuit_breaker_when_service_is_not_available():
 
 def test_circuit_breaker_when_service_failed():
     mock_external_api_adapter = MagicMock(spec=ExternalAPIAdapter)
-    serviceRegistry.registerService(SERVICE_NAME_EXTERNAL_API_ADAPTER, mock_external_api_adapter)
+    service_registry.register_service(SERVICE_NAME_EXTERNAL_API_ADAPTER, mock_external_api_adapter)
     mock_external_api_adapter.external_api_call.return_value = True
 
     for _ in range(5):
