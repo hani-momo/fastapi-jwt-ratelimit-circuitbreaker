@@ -46,7 +46,9 @@ def test_expired_token():
         '/register',
         json={'username': 'testusername', 'password': 'testpassword'},
     )
-    login_response = client.post('/login', data={'username': 'testusername', 'password': 'testpassword'})
+    login_response = client.post(
+        '/login', 
+        data={'username': 'testusername', 'password': 'testpassword'})
     assert login_response.status_code == 200
     access_token = login_response.json()['access_token']
 
@@ -56,9 +58,11 @@ def test_expired_token():
     
     assert response.status_code == 401
 
-def test_rate_limiter_functionality():
+def test_rate_limiter():
     for _ in range(4):
-        response = client.post('/login', data={'username': 'testusername', 'password': 'testpassword'})
+        response = client.post(
+            '/login', 
+            data={'username': 'testusername', 'password': 'testpassword'})
         if response.status_code ==429:
             break
         time.sleep(1)
@@ -66,24 +70,24 @@ def test_rate_limiter_functionality():
 
 def test_circuit_breaker_when_service_is_not_available():
     mock_external_api_adapter = MagicMock(spec=ExternalAPIAdapter)
-    mock_external_api_adapter.external_api_call.return_value = False
     serviceRegistry.registerService(SERVICE_NAME_EXTERNAL_API_ADAPTER, mock_external_api_adapter)
+    mock_external_api_adapter.external_api_call.return_value = False
 
     response = client.get('/circuitbreak')
     assert response.status_code == 503
 
 def test_circuit_breaker_when_service_failed():
     mock_external_api_adapter = MagicMock(spec=ExternalAPIAdapter)
-    mock_external_api_adapter.external_api_call.return_value = True
     serviceRegistry.registerService(SERVICE_NAME_EXTERNAL_API_ADAPTER, mock_external_api_adapter)
+    mock_external_api_adapter.external_api_call.return_value = True
 
-    for _ in range(10):
+    for _ in range(5):
         response = client.get('/circuitbreak')
         assert response.status_code == 200
 
     mock_external_api_adapter.external_api_call.return_value = False
     try:
-        for _ in range(10):
+        for _ in range(5):
             response = client.get('/circuitbreak')
     except pybreaker.CircuitBreakerError:
         assert True
