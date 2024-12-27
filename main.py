@@ -12,7 +12,7 @@ from slowapi.errors import RateLimitExceeded
 
 import pybreaker
 
-from users import users_db, Token, UserRegistration
+from data import users_db, Token, UserRegistration
 from services import (
     authenticate_user, create_token,
     register_user,
@@ -45,10 +45,9 @@ class ExternalAPIAdapter:
     def external_api_call(self):
         return True
 
+
 SERVICE_NAME_EXTERNAL_API_ADAPTER = 'external_api_adapter'
 service_registry = ExternalServicesRegistry()
-
-service_registry.register_service(SERVICE_NAME_EXTERNAL_API_ADAPTER, ExternalAPIAdapter())
 
 
 @app.get('/')

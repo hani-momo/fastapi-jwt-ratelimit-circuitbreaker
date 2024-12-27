@@ -17,7 +17,7 @@ class TokenData(BaseModel):
 
 
 class UserRegistration(BaseModel):
-    username: str 
+    username: str
     password: str
 
 class User(BaseModel):

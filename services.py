@@ -1,15 +1,13 @@
 '''
 Module for service methods
 '''
-import random
 from datetime import datetime, timedelta, timezone
 
 import jwt
 from passlib.context import CryptContext
-from fastapi.responses import JSONResponse
 from fastapi import HTTPException
 
-from users import users_db, UserInDB, TokenData
+from data import users_db, UserInDB, TokenData
 from config import ALGORITHM, SECRET_KEY
 
 
