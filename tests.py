@@ -2,7 +2,7 @@
 Tests module
 '''
 import time
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, Mock
 
 import pybreaker
 
@@ -69,7 +69,7 @@ def test_rate_limiter():
     assert response.status_code == 429
 
 def test_circuit_breaker_when_service_is_not_available():
-    mock_external_api_adapter = MagicMock(spec=ExternalAPIAdapter)
+    mock_external_api_adapter = Mock(spec=ExternalAPIAdapter)
     service_registry.register_service(SERVICE_NAME_EXTERNAL_API_ADAPTER, mock_external_api_adapter)
     mock_external_api_adapter.external_api_call.return_value = False
 
@@ -77,7 +77,7 @@ def test_circuit_breaker_when_service_is_not_available():
     assert response.status_code == 503
 
 def test_circuit_breaker_when_service_failed():
-    mock_external_api_adapter = MagicMock(spec=ExternalAPIAdapter)
+    mock_external_api_adapter = Mock(spec=ExternalAPIAdapter)
     service_registry.register_service(SERVICE_NAME_EXTERNAL_API_ADAPTER, mock_external_api_adapter)
     mock_external_api_adapter.external_api_call.return_value = True
 
