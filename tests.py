@@ -91,20 +91,11 @@ def test_circuit_breaker_multiple_failures(mock_adapter):
         assert response.status_code == 503
 
     mock_adapter.external_api_call.return_value = True
-    
     response = client.get('/circuitbreak')
     assert response.status_code == 200
 
-    mock_adapter.external_api_call.side_effect = [False, False, False, True]
-    for _ in range(4):
-        responses = []
-        response = client.get('/circuitbreak')
-        responses.append(response)
-        print(responses)
-
-
-    # response = client.get('/circuitbreak')
-    # assert response.status_code == 503
-    # response = client.get('/circuitbreak')
-    # assert response.status_code == 200
-
+    mock_adapter.external_api_call.side_effect = [False, True]
+    response = client.get('/circuitbreak')
+    assert response.status_code == 503
+    response = client.get('/circuitbreak')
+    assert response.status_code == 200
