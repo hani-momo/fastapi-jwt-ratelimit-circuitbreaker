@@ -32,7 +32,7 @@ circuit_breaker = pybreaker.CircuitBreaker()
 
 class ExternalAPIAdapter:
     def external_api_call(self):
-        return True
+        return 'hello'
 
 
 @app.get('/')
@@ -75,8 +75,12 @@ async def protected_route(token: str = Depends(oauth2_scheme)):
 
 
 @app.get('/circuitbreak', status_code=200)
-async def circuit_breaker_endpoint(adapter: ExternalAPIAdapter = Depends()):
-    result = adapter.external_api_call()
-    if result == False:
-        raise HTTPException(status_code=503, detail="Service temporarily unavailable")
-    return result
+@circuit_breaker(fail_max=3, reset_timeout=10)
+def circuit_breaker_endpoint(adapter: ExternalAPIAdapter = Depends()):
+    try:
+        result = adapter.external_api_call()
+        return result
+    except pybreaker.CircuitBreakerError:
+        raise HTTPException(status_code=503, detail="Circuit Breaker open")
+    except Exception:
+        raise HTTPException(status_code=503, detail="Service unavailable")

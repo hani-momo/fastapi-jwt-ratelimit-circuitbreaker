@@ -2,7 +2,7 @@
 Tests module
 '''
 import time
-from unittest.mock import patch, Mock
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import HTTPException
@@ -17,7 +17,9 @@ client = TestClient(app)
 
 @pytest.fixture
 def mock_adapter():
-    adapter = Mock(spec=ExternalAPIAdapter)
+    adapter = MagicMock(spec=ExternalAPIAdapter)
+    app.dependency_overrides[ExternalAPIAdapter] = lambda: adapter
+    return adapter
 
 def test_root():
     response = client.get('/')
@@ -72,30 +74,31 @@ def test_rate_limiter():
         time.sleep(1)
     assert response.status_code == 429
 
-def test_circuit_breaker_service_unavailable():
-    mock_adapter = Mock(spec=ExternalAPIAdapter)
-    app.dependency_overrides[ExternalAPIAdapter] = lambda: mock_adapter
-
-    mock_adapter.external_api_call.return_value = False
-
+def test_circuit_breaker_success(mock_adapter):
     response = client.get('/circuitbreak')
-    assert response.status_code == 503
+    assert response.status_code == 200
 
-def test_circuit_breaker_multiple_failures(mock_adapter):
-    mock_adapter = Mock(spec=ExternalAPIAdapter)
-    app.dependency_overrides[ExternalAPIAdapter] = lambda: mock_adapter
-    mock_adapter.external_api_call.return_value = False
-
+def test_circuit_breaker_fail_max_reached_and_reset(mock_adapter):
+    mock_adapter.external_api_call.side_effect = [
+        Exception(), Exception(), 
+        Exception(), Exception(), 
+        'hello']
+    
     for _ in range(4):
         response = client.get('/circuitbreak')
         assert response.status_code == 503
 
-    mock_adapter.external_api_call.return_value = True
+    time.sleep(11)
     response = client.get('/circuitbreak')
     assert response.status_code == 200
 
-    mock_adapter.external_api_call.side_effect = [False, True]
+def test_circuit_breaker_returns_io_error(mock_adapter):
+    mock_adapter.external_api_call.side_effect = IOError()
     response = client.get('/circuitbreak')
     assert response.status_code == 503
+
+def test_call_returns_timeout(mock_adapter):
+    mock_adapter.external_api_call.side_effect = TimeoutError()
     response = client.get('/circuitbreak')
-    assert response.status_code == 200
+    assert response.status_code == 503
+
