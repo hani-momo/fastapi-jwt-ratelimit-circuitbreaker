@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 from typing import Annotated
 
@@ -21,13 +22,15 @@ from services import (
 from config import ACCESS_TOKEN_EXPIRE_MINUTES
 
 
+logger = logging.getLogger(__name__)
+
 app = FastAPI()
 
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-circuit_breaker = pybreaker.CircuitBreaker()
+circuit_breaker = pybreaker.CircuitBreaker(fail_max=3, reset_timeout=5)
 
 
 class ExternalAPIAdapter:
@@ -75,12 +78,13 @@ async def protected_route(token: str = Depends(oauth2_scheme)):
 
 
 @app.get('/circuitbreak', status_code=200)
-@circuit_breaker(fail_max=3, reset_timeout=10)
+@circuit_breaker
 def circuit_breaker_endpoint(adapter: ExternalAPIAdapter = Depends()):
     try:
-        result = adapter.external_api_call()
-        return result
-    except pybreaker.CircuitBreakerError:
+        return adapter.external_api_call()
+    except pybreaker.CircuitBreakerError as cb_error:
+        logger.error(f'CIRCUIT BREAKER ERROR: {cb_error}')
         raise HTTPException(status_code=503, detail="Circuit Breaker open")
-    except Exception:
-        raise HTTPException(status_code=503, detail="Service unavailable")
+    except Exception as e:
+        logger.error(str(e))
+        raise HTTPException(status_code=500, detail="General application error")

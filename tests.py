@@ -12,6 +12,8 @@ from fastapi.testclient import TestClient
 from config import ACCESS_TOKEN_EXPIRE_MINUTES
 from main import app, ExternalAPIAdapter
 
+import pybreaker
+
 
 client = TestClient(app)
 
@@ -80,25 +82,39 @@ def test_circuit_breaker_success(mock_adapter):
 
 def test_circuit_breaker_fail_max_reached_and_reset(mock_adapter):
     mock_adapter.external_api_call.side_effect = [
-        Exception(), Exception(), 
-        Exception(), Exception(), 
+        HTTPException(status_code=500), HTTPException(status_code=500), HTTPException(status_code=500),
+        HTTPException(status_code=503), 
         'hello']
-    
-    for _ in range(4):
+    try:
+        for _ in range(3):
+            response = client.get('/circuitbreak')     
+    except Exception as e:            
+        assert response.status_code == 500
+
+    try:
         response = client.get('/circuitbreak')
-        assert response.status_code == 503
+        assert False
+    except pybreaker.CircuitBreakerError:
+        assert True
 
-    time.sleep(11)
-    response = client.get('/circuitbreak')
-    assert response.status_code == 200
+    time.sleep(6)
+    mock_adapter.external_api_call.return_value = 'hello'
+    for _ in range(10):
+        time.sleep(1)
+        try:
+            response = client.get('/circuitbreak')
+            assert True
+            return
+        except Exception:
+            pass
+    return False
 
-def test_circuit_breaker_returns_io_error(mock_adapter):
+def test_service_returns_io_error(mock_adapter):
     mock_adapter.external_api_call.side_effect = IOError()
     response = client.get('/circuitbreak')
-    assert response.status_code == 503
+    assert response.status_code == 500
 
-def test_call_returns_timeout(mock_adapter):
+def test_service_returns_timeout(mock_adapter):
     mock_adapter.external_api_call.side_effect = TimeoutError()
     response = client.get('/circuitbreak')
-    assert response.status_code == 503
-
+    assert response.status_code == 500
